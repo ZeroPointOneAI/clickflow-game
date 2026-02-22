@@ -271,6 +271,7 @@
         <footer>
             <p>Keep clicking. The AI learns.</p>
             <button class="reset-btn" onclick="resetGame()">Reset Progress</button>
+            <button class="reset-btn" style="margin-left:10px;background:#c44;" onclick="hardReset()">Clear All Data</button>
         </footer>
     </div>
     
@@ -406,6 +407,24 @@
                 localStorage.removeItem('clickflow_save');
                 location.reload();
             }
+        }
+        
+        function hardReset() {
+            localStorage.clear();
+            sessionStorage.clear();
+            game = {
+                tokens: 0,
+                totalEarned: 0,
+                totalClicks: 0,
+                perSecond: 0,
+                clickValue: 1,
+                upgrades: {}
+            };
+            saveGame();
+            updateDisplay();
+            renderUpgrades();
+            alert('All data cleared! Page will reload.');
+            location.reload();
         }
         
         setInterval(() => {
