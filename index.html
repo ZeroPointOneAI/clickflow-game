@@ -14,7 +14,6 @@
             overflow-x: hidden;
         }
         
-        /* Animated background */
         .bg {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -50,7 +49,6 @@
             font-size: 0.9rem;
         }
         
-        /* Main click area */
         .click-area {
             background: linear-gradient(145deg, #111118, #0a0a0f);
             border: 2px solid #00ff8822;
@@ -96,7 +94,12 @@
             color: #00d4ff;
         }
         
-        /* Stats */
+        .multiplier {
+            font-size: 0.8rem;
+            color: #ff6b6b;
+            margin-top: 0.25rem;
+        }
+        
         .stats {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -123,12 +126,12 @@
             margin-top: 0.25rem;
         }
         
-        /* Upgrades */
         .upgrades {
             background: #111118;
             border-radius: 16px;
             padding: 1.5rem;
             text-align: left;
+            margin-bottom: 1rem;
         }
         
         .upgrades h2 {
@@ -158,6 +161,15 @@
         .upgrade.disabled {
             opacity: 0.4;
             cursor: not-allowed;
+        }
+        
+        .upgrade.self-upgrade {
+            border-color: #8a2be2;
+        }
+        
+        .upgrade.self-upgrade:hover:not(.disabled) {
+            border-color: #a855f7;
+            box-shadow: 0 0 15px rgba(138,43,226,0.3);
         }
         
         .upgrade-info h3 {
@@ -191,7 +203,6 @@
             margin-top: 0.25rem;
         }
         
-        /* Floating numbers */
         .float {
             position: absolute;
             pointer-events: none;
@@ -205,7 +216,21 @@
             100% { opacity: 0; transform: translateY(-50px); }
         }
         
-        /* Footer */
+        .auto-badge {
+            background: linear-gradient(135deg, #8a2be2, #ff6b6b);
+            color: #fff;
+            font-size: 0.6rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            margin-left: 0.5rem;
+            animation: glow 2s ease-in-out infinite;
+        }
+        
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 5px #8a2be2; }
+            50% { box-shadow: 0 0 15px #a855f7; }
+        }
+        
         footer {
             margin-top: 2rem;
             padding-top: 1rem;
@@ -235,12 +260,13 @@
     <div class="bg"></div>
     <div class="container">
         <h1>ClickFlow</h1>
-        <p class="tagline">Train your AI. Watch it grow.</p>
+        <p class="tagline">Train your AI. Watch it grow. Evolve.</p>
         
         <div class="click-area" id="clickArea">
-            <div class="brain-icon">🧠</div>
+            <div class="brain-icon" id="brainIcon">🧠</div>
             <div class="tokens" id="tokens">0</div>
             <div class="per-second" id="perSecond">0 tokens/sec</div>
+            <div class="multiplier" id="multiplier">Bonus: x1.0</div>
         </div>
         
         <div class="stats">
@@ -259,66 +285,90 @@
             <div id="upgradeList"></div>
         </div>
         
+        <div class="upgrades">
+            <h2>🧬 Self-Improvement <span id="autoStatus"></span></h2>
+            <div id="selfUpgradeList"></div>
+        </div>
+        
         <footer>
-            <p>Keep clicking. The AI learns.</p>
+            <p id="aiStatus">The AI is learning...</p>
             <button class="reset-btn" onclick="resetGame()">Reset Progress</button>
         </footer>
     </div>
     
     <script>
-        // Game state
         let game = {
             tokens: 0,
             totalEarned: 0,
             totalClicks: 0,
             perSecond: 0,
             clickValue: 1,
-            upgrades: {}
+            upgradeMultiplier: 1,
+            selfImprovementLevel: 0,
+            upgrades: {},
+            selfUpgrades: {}
         };
         
-        // Upgrade definitions
         const upgrades = [
             { id: 'cursor', name: 'Auto-Clicker', desc: '+1 token/sec', baseCost: 15, bonus: 1 },
             { id: 'algorithm', name: 'Better Algorithm', desc: '+5 tokens/sec', baseCost: 100, bonus: 5 },
             { id: 'neural', name: 'Neural Network', desc: '+20 tokens/sec', baseCost: 500, bonus: 20 },
             { id: 'quantum', name: 'Quantum Core', desc: '+100 tokens/sec', baseCost: 2500, bonus: 100 },
             { id: 'agi', name: 'AGI Breakthrough', desc: '+500 tokens/sec', baseCost: 15000, bonus: 500 },
-            { id: 'singularity', name: 'Singularity', desc: '+3000 tokens/sec', baseCost: 100000, bonus: 3000 }
+            { id: 'singularity', name: 'Singularity', desc: '+3000 tokens/sec', baseCost: 100000, bonus: 3000, isSingularity: true }
         ];
         
-        // Load game
+        const selfUpgrades = [
+            { id: 'meta', name: 'Meta-Learning', desc: '+10% click power per level', baseCost: 500, effect: 'click' },
+            { id: 'recursive', name: 'Recursive Improvement', desc: '+15% upgrade efficiency', baseCost: 2000, effect: 'upgrade' },
+            { id: 'snowball', name: 'Snowball Effect', desc: '+20% all production', baseCost: 10000, effect: 'production' },
+            { id: 'selfOptimize', name: 'Self-Optimization', desc: 'Auto-upgrades every 10s', baseCost: 50000, effect: 'auto', isAuto: true }
+        ];
+        
         function loadGame() {
             const saved = localStorage.getItem('clickflow_save');
             if (saved) {
                 game = JSON.parse(saved);
             }
-            // Initialize upgrades if not exist
             upgrades.forEach(u => {
                 if (!game.upgrades[u.id]) game.upgrades[u.id] = 0;
             });
+            selfUpgrades.forEach(u => {
+                if (!game.selfUpgrades[u.id]) game.selfUpgrades[u.id] = 0;
+            });
         }
         
-        // Save game
         function saveGame() {
             localStorage.setItem('clickflow_save', JSON.stringify(game));
         }
         
-        // Calculate cost
-        function getCost(upgrade) {
-            const owned = game.upgrades[upgrade.id] || 0;
-            return Math.floor(upgrade.baseCost * Math.pow(1.15, owned));
+        function getCost(upgrade, isSelf = false) {
+            const owned = isSelf ? game.selfUpgrades[upgrade.id] : game.upgrades[upgrade.id];
+            const baseMult = isSelf ? 2 : 1.15;
+            return Math.floor(upgrade.baseCost * Math.pow(baseMult, owned || 0));
         }
         
-        // Click handler
+        function getSelfUpgradeMultiplier() {
+            let mult = 1;
+            selfUpgrades.forEach(u => {
+                const level = game.selfUpgrades[u.id] || 0;
+                if (u.effect === 'click') mult *= Math.pow(1.10, level);
+                if (u.effect === 'upgrade') game.upgradeMultiplier = Math.pow(1.15, level);
+                if (u.effect === 'production') mult *= Math.pow(1.20, level);
+            });
+            return mult;
+        }
+        
         document.getElementById('clickArea').addEventListener('click', (e) => {
-            game.tokens += game.clickValue;
-            game.totalEarned += game.clickValue;
+            const clickMult = getSelfUpgradeMultiplier();
+            const gain = game.clickValue * clickMult;
+            game.tokens += gain;
+            game.totalEarned += gain;
             game.totalClicks++;
             
-            // Floating number
             const float = document.createElement('div');
             float.className = 'float';
-            float.textContent = '+' + game.clickValue;
+            float.textContent = '+' + formatNumber(gain);
             float.style.left = (e.offsetX - 20) + 'px';
             float.style.top = (e.offsetY - 20) + 'px';
             e.currentTarget.appendChild(float);
@@ -328,59 +378,92 @@
             saveGame();
         });
         
-        // Buy upgrade
-        function buyUpgrade(id) {
-            const upgrade = upgrades.find(u => u.id === id);
-            const cost = getCost(upgrade);
-            
-            if (game.tokens >= cost) {
-                game.tokens -= cost;
-                game.upgrades[id]++;
-                recalcPerSecond();
-                updateDisplay();
-                renderUpgrades();
-                saveGame();
+        function buyUpgrade(id, isSelf = false) {
+            if (isSelf) {
+                const upgrade = selfUpgrades.find(u => u.id === id);
+                const cost = getCost(upgrade, true);
+                if (game.tokens >= cost) {
+                    game.tokens -= cost;
+                    game.selfUpgrades[id]++;
+                    recalcPerSecond();
+                    updateDisplay();
+                    renderUpgrades();
+                    saveGame();
+                }
+            } else {
+                const upgrade = upgrades.find(u => u.id === id);
+                const cost = getCost(upgrade);
+                if (game.tokens >= cost) {
+                    game.tokens -= cost;
+                    game.upgrades[id]++;
+                    recalcPerSecond();
+                    updateDisplay();
+                    renderUpgrades();
+                    saveGame();
+                }
             }
         }
         
-        // Recalculate per second
         function recalcPerSecond() {
+            const prodMult = getSelfUpgradeMultiplier();
             let ps = 0;
             upgrades.forEach(u => {
                 ps += (game.upgrades[u.id] || 0) * u.bonus;
             });
-            game.perSecond = ps;
+            game.perSecond = ps * prodMult;
         }
         
-        // Update display
         function updateDisplay() {
+            const clickMult = getSelfUpgradeMultiplier();
             document.getElementById('tokens').textContent = formatNumber(game.tokens);
             document.getElementById('perSecond').textContent = formatNumber(game.perSecond) + ' tokens/sec';
+            document.getElementById('multiplier').textContent = 'Bonus: x' + clickMult.toFixed(1);
             document.getElementById('totalClicks').textContent = formatNumber(game.totalClicks);
             document.getElementById('totalEarned').textContent = formatNumber(game.totalEarned);
             
-            // Update upgrade buttons
+            // Check for singularity auto-upgrade
+            const singularity = upgrades.find(u => u.id === 'singularity');
+            const hasSingularity = game.upgrades.singularity > 0;
+            const hasSelfOptimize = game.selfUpgrades.selfOptimize > 0;
+            
+            if (hasSingularity && hasSelfOptimize) {
+                document.getElementById('brainIcon').textContent = '🌌';
+                document.getElementById('aiStatus').textContent = '🤖 The Singularity has been reached. The AI now improves itself.';
+                document.getElementById('autoStatus').innerHTML = '<span class="auto-badge">AUTO</span>';
+            } else if (hasSingularity) {
+                document.getElementById('brainIcon').textContent = '∞';
+                document.getElementById('aiStatus').textContent = '⚡ Singularity achieved. The AI transcends.';
+            } else if (hasSelfOptimize) {
+                document.getElementById('brainIcon').textContent = '🧬';
+                document.getElementById('aiStatus').textContent = '🧬 Self-optimization active. The AI improves itself.';
+            }
+            
             upgrades.forEach(u => {
                 const cost = getCost(u);
                 const el = document.getElementById('upgrade-' + u.id);
                 if (el) {
-                    if (game.tokens >= cost) {
-                        el.classList.remove('disabled');
-                    } else {
-                        el.classList.add('disabled');
-                    }
+                    el.classList.toggle('disabled', game.tokens < cost);
+                }
+            });
+            
+            selfUpgrades.forEach(u => {
+                const cost = getCost(u, true);
+                const el = document.getElementById('selfUpgrade-' + u.id);
+                if (el) {
+                    el.classList.toggle('disabled', game.tokens < cost);
                 }
             });
         }
         
-        // Format numbers
         function formatNumber(n) {
-            if (n >= 1000000) return (n / 1000000).toFixed(2) + 'M';
-            if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+            if (n >= 1e15) return (n / 1e15).toFixed(2) + 'Q';
+            if (n >= 1e12) return (n / 1e12).toFixed(2) + 'T';
+            if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+            if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+            if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
             return Math.floor(n).toString();
         }
         
-        // Render upgrades
         function renderUpgrades() {
             const list = document.getElementById('upgradeList');
             list.innerHTML = '';
@@ -388,15 +471,17 @@
             upgrades.forEach(u => {
                 const cost = getCost(u);
                 const owned = game.upgrades[u.id] || 0;
+                const bonus = Math.floor(u.bonus * getSelfUpgradeMultiplier());
                 
                 const div = document.createElement('div');
                 div.className = 'upgrade' + (game.tokens < cost ? ' disabled' : '');
+                if (u.isSingularity) div.className += ' self-upgrade';
                 div.id = 'upgrade-' + u.id;
-                div.onclick = () => buyUpgrade(u.id);
+                div.onclick = () => buyUpgrade(u.id, false);
                 div.innerHTML = `
                     <div class="upgrade-info">
-                        <h3>${u.name}</h3>
-                        <p>${u.desc}</p>
+                        <h3>${u.name} ${u.isSingularity ? '🌌' : ''}</h3>
+                        <p>${u.desc} (${bonus}/s)</p>
                     </div>
                     <div class="upgrade-cost">
                         <div class="price">${formatNumber(cost)}</div>
@@ -405,9 +490,32 @@
                 `;
                 list.appendChild(div);
             });
+            
+            const selfList = document.getElementById('selfUpgradeList');
+            selfList.innerHTML = '';
+            
+            selfUpgrades.forEach(u => {
+                const cost = getCost(u, true);
+                const owned = game.selfUpgrades[u.id] || 0;
+                
+                const div = document.createElement('div');
+                div.className = 'upgrade self-upgrade' + (game.tokens < cost ? ' disabled' : '');
+                div.id = 'selfUpgrade-' + u.id;
+                div.onclick = () => buyUpgrade(u.id, true);
+                div.innerHTML = `
+                    <div class="upgrade-info">
+                        <h3>${u.name} ${u.isAuto ? '🔄' : ''}</h3>
+                        <p>${u.desc}</p>
+                    </div>
+                    <div class="upgrade-cost">
+                        <div class="price">${formatNumber(cost)}</div>
+                        <div class="upgrade-owned">Level: ${owned}</div>
+                    </div>
+                `;
+                selfList.appendChild(div);
+            });
         }
         
-        // Reset
         function resetGame() {
             if (confirm('Reset all progress?')) {
                 localStorage.removeItem('clickflow_save');
@@ -415,7 +523,46 @@
             }
         }
         
-        // Passive income loop
+        // Auto self-upgrade every 10s if selfOptimize is active
+        setInterval(() => {
+            if (game.selfUpgrades.selfOptimize > 0) {
+                // Find cheapest upgrade and buy it
+                const allUpgrades = [...upgrades, ...selfUpgrades];
+                let cheapest = null;
+                let minCost = Infinity;
+                
+                upgrades.forEach(u => {
+                    const cost = getCost(u);
+                    if (cost < minCost) {
+                        minCost = cost;
+                        cheapest = { ...u, isSelf: false };
+                    }
+                });
+                
+                selfUpgrades.forEach(u => {
+                    const cost = getCost(u, true);
+                    if (cost < minCost) {
+                        minCost = cost;
+                        cheapest = { ...u, isSelf: true };
+                    }
+                });
+                
+                if (cheapest && game.tokens >= minCost) {
+                    if (cheapest.isSelf) {
+                        game.tokens -= minCost;
+                        game.selfUpgrades[cheapest.id]++;
+                    } else {
+                        game.tokens -= minCost;
+                        game.upgrades[cheapest.id]++;
+                    }
+                    recalcPerSecond();
+                    updateDisplay();
+                    renderUpgrades();
+                    saveGame();
+                }
+            }
+        }, 10000);
+        
         setInterval(() => {
             if (game.perSecond > 0) {
                 const gain = game.perSecond / 10;
@@ -426,10 +573,8 @@
             }
         }, 100);
         
-        // Auto-save every 30 seconds
         setInterval(saveGame, 30000);
         
-        // Initialize
         loadGame();
         recalcPerSecond();
         renderUpgrades();
