@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClickFlow - AI Idle Game</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            background: #0a0a0f; 
+            color: #00ff88;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        /* Animated background */
+        .bg {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: 
+                radial-gradient(ellipse at 20% 80%, rgba(0,255,136,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(0,150,255,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(138,43,226,0.05) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #00ff88, #00d4ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .tagline {
+            color: #666;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+        
+        /* Main click area */
+        .click-area {
+            background: linear-gradient(145deg, #111118, #0a0a0f);
+            border: 2px solid #00ff8822;
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .click-area:hover {
+            border-color: #00ff8855;
+            transform: scale(1.02);
+            box-shadow: 0 0 40px rgba(0,255,136,0.15);
+        }
+        
+        .click-area:active {
+            transform: scale(0.98);
+        }
+        
+        .brain-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+        }
+        
+        .tokens {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+        
+        .per-second {
+            font-size: 0.9rem;
+            color: #00d4ff;
+        }
+        
+        /* Stats */
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-box {
+            background: #111118;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 1rem;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #fff;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+        
+        /* Upgrades */
+        .upgrades {
+            background: #111118;
+            border-radius: 16px;
+            padding: 1.5rem;
+            text-align: left;
+        }
+        
+        .upgrades h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: #fff;
+        }
+        
+        .upgrade {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background: #0a0a0f;
+            border: 1px solid #222;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .upgrade:hover:not(.disabled) {
+            border-color: #00ff88;
+            background: #0a0f0a;
+        }
+        
+        .upgrade.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        
+        .upgrade-info h3 {
+            font-size: 0.95rem;
+            color: #fff;
+            margin-bottom: 0.25rem;
+        }
+        
+        .upgrade-info p {
+            font-size: 0.75rem;
+            color: #666;
+        }
+        
+        .upgrade-cost {
+            text-align: right;
+        }
+        
+        .upgrade-cost .price {
+            color: #ff6b6b;
+            font-weight: bold;
+        }
+        
+        .upgrade-cost .bonus {
+            font-size: 0.7rem;
+            color: #00ff88;
+        }
+        
+        .upgrade-owned {
+            font-size: 0.7rem;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+        
+        /* Floating numbers */
+        .float {
+            position: absolute;
+            pointer-events: none;
+            animation: floatUp 1s ease-out forwards;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-50px); }
+        }
+        
+        /* Footer */
+        footer {
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid #222;
+            color: #444;
+            font-size: 0.75rem;
+        }
+        
+        .reset-btn {
+            background: transparent;
+            border: 1px solid #333;
+            color: #666;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            margin-top: 0.5rem;
+        }
+        
+        .reset-btn:hover {
+            border-color: #ff6b6b;
+            color: #ff6b6b;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg"></div>
+    <div class="container">
+        <h1>ClickFlow</h1>
+        <p class="tagline">Train your AI. Watch it grow.</p>
+        
+        <div class="click-area" id="clickArea">
+            <div class="brain-icon">🧠</div>
+            <div class="tokens" id="tokens">0</div>
+            <div class="per-second" id="perSecond">0 tokens/sec</div>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-value" id="totalClicks">0</div>
+                <div class="stat-label">Total Clicks</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="totalEarned">0</div>
+                <div class="stat-label">Tokens Earned</div>
+            </div>
+        </div>
+        
+        <div class="upgrades">
+            <h2>⚡ Upgrades</h2>
+            <div id="upgradeList"></div>
+        </div>
+        
+        <footer>
+            <p>Keep clicking. The AI learns.</p>
+            <button class="reset-btn" onclick="resetGame()">Reset Progress</button>
+        </footer>
+    </div>
+    
+    <script>
+        // Game state
+        let game = {
+            tokens: 0,
+            totalEarned: 0,
+            totalClicks: 0,
+            perSecond: 0,
+            clickValue: 1,
+            upgrades: {}
+        };
+        
+        // Upgrade definitions
+        const upgrades = [
+            { id: 'cursor', name: 'Auto-Clicker', desc: '+1 token/sec', baseCost: 15, bonus: 1 },
+            { id: 'algorithm', name: 'Better Algorithm', desc: '+5 tokens/sec', baseCost: 100, bonus: 5 },
+            { id: 'neural', name: 'Neural Network', desc: '+20 tokens/sec', baseCost: 500, bonus: 20 },
+            { id: 'quantum', name: 'Quantum Core', desc: '+100 tokens/sec', baseCost: 2500, bonus: 100 },
+            { id: 'agi', name: 'AGI Breakthrough', desc: '+500 tokens/sec', baseCost: 15000, bonus: 500 },
+            { id: 'singularity', name: 'Singularity', desc: '+3000 tokens/sec', baseCost: 100000, bonus: 3000 }
+        ];
+        
+        // Load game
+        function loadGame() {
+            const saved = localStorage.getItem('clickflow_save');
+            if (saved) {
+                game = JSON.parse(saved);
+            }
+            // Initialize upgrades if not exist
+            upgrades.forEach(u => {
+                if (!game.upgrades[u.id]) game.upgrades[u.id] = 0;
+            });
+        }
+        
+        // Save game
+        function saveGame() {
+            localStorage.setItem('clickflow_save', JSON.stringify(game));
+        }
+        
+        // Calculate cost
+        function getCost(upgrade) {
+            const owned = game.upgrades[upgrade.id] || 0;
+            return Math.floor(upgrade.baseCost * Math.pow(1.15, owned));
+        }
+        
+        // Click handler
+        document.getElementById('clickArea').addEventListener('click', (e) => {
+            game.tokens += game.clickValue;
+            game.totalEarned += game.clickValue;
+            game.totalClicks++;
+            
+            // Floating number
+            const float = document.createElement('div');
+            float.className = 'float';
+            float.textContent = '+' + game.clickValue;
+            float.style.left = (e.offsetX - 20) + 'px';
+            float.style.top = (e.offsetY - 20) + 'px';
+            e.currentTarget.appendChild(float);
+            setTimeout(() => float.remove(), 1000);
+            
+            updateDisplay();
+            saveGame();
+        });
+        
+        // Buy upgrade
+        function buyUpgrade(id) {
+            const upgrade = upgrades.find(u => u.id === id);
+            const cost = getCost(upgrade);
+            
+            if (game.tokens >= cost) {
+                game.tokens -= cost;
+                game.upgrades[id]++;
+                recalcPerSecond();
+                updateDisplay();
+                renderUpgrades();
+                saveGame();
+            }
+        }
+        
+        // Recalculate per second
+        function recalcPerSecond() {
+            let ps = 0;
+            upgrades.forEach(u => {
+                ps += (game.upgrades[u.id] || 0) * u.bonus;
+            });
+            game.perSecond = ps;
+        }
+        
+        // Update display
+        function updateDisplay() {
+            document.getElementById('tokens').textContent = formatNumber(game.tokens);
+            document.getElementById('perSecond').textContent = formatNumber(game.perSecond) + ' tokens/sec';
+            document.getElementById('totalClicks').textContent = formatNumber(game.totalClicks);
+            document.getElementById('totalEarned').textContent = formatNumber(game.totalEarned);
+            
+            // Update upgrade buttons
+            upgrades.forEach(u => {
+                const cost = getCost(u);
+                const el = document.getElementById('upgrade-' + u.id);
+                if (el) {
+                    if (game.tokens >= cost) {
+                        el.classList.remove('disabled');
+                    } else {
+                        el.classList.add('disabled');
+                    }
+                }
+            });
+        }
+        
+        // Format numbers
+        function formatNumber(n) {
+            if (n >= 1000000) return (n / 1000000).toFixed(2) + 'M';
+            if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+            return Math.floor(n).toString();
+        }
+        
+        // Render upgrades
+        function renderUpgrades() {
+            const list = document.getElementById('upgradeList');
+            list.innerHTML = '';
+            
+            upgrades.forEach(u => {
+                const cost = getCost(u);
+                const owned = game.upgrades[u.id] || 0;
+                
+                const div = document.createElement('div');
+                div.className = 'upgrade' + (game.tokens < cost ? ' disabled' : '');
+                div.id = 'upgrade-' + u.id;
+                div.onclick = () => buyUpgrade(u.id);
+                div.innerHTML = `
+                    <div class="upgrade-info">
+                        <h3>${u.name}</h3>
+                        <p>${u.desc}</p>
+                    </div>
+                    <div class="upgrade-cost">
+                        <div class="price">${formatNumber(cost)}</div>
+                        <div class="upgrade-owned">Owned: ${owned}</div>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+        
+        // Reset
+        function resetGame() {
+            if (confirm('Reset all progress?')) {
+                localStorage.removeItem('clickflow_save');
+                location.reload();
+            }
+        }
+        
+        // Passive income loop
+        setInterval(() => {
+            if (game.perSecond > 0) {
+                const gain = game.perSecond / 10;
+                game.tokens += gain;
+                game.totalEarned += gain;
+                updateDisplay();
+                saveGame();
+            }
+        }, 100);
+        
+        // Auto-save every 30 seconds
+        setInterval(saveGame, 30000);
+        
+        // Initialize
+        loadGame();
+        recalcPerSecond();
+        renderUpgrades();
+        updateDisplay();
+    </script>
+</body>
+</html>
